@@ -179,7 +179,7 @@ const Bet = () => {
 						</label>
 						<input
 							id="amount"
-							type="text"
+							type="number"
 							pattern="\d*"
 							onInput={(event) => {
 								event.target.value = event.target.value.replace(/\D/g, "");
