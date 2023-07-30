@@ -3,7 +3,7 @@ import {
 	enterToOddEvenGame,
 	getOddEvenGameState,
 	getInterval,
-	getLatestTimeStamp,
+	getUsdc,
 } from "../backendConnectors/oddEvenGameConnector";
 import { useConnectWallet } from "../Wallet/useConnectWallet";
 import { ethers } from "ethers";
@@ -20,7 +20,7 @@ const Bet = () => {
 	const [winners, setWinners] = useState([]);
 	const [remainingTime, setRemainingTime] = useState(null);
 	const [firstPlayerEntered, setFirstPlayerEntered] = useState(null);
-
+	const [gameInterval, setGameInterval] = useState(null);
 	const { provider } = useConnectWallet();
 
 	const handleSubmit = async (event) => {
@@ -76,7 +76,20 @@ const Bet = () => {
 			}
 		};
 
+		const fetchGameInterval = async () => {
+			// Get interval
+			const intervalResponse = await getInterval();
+			if (!intervalResponse.success) {
+				console.error("Failed to get interval:", intervalResponse.msg);
+				return;
+			}
+
+			const interval = intervalResponse.data;
+			setGameInterval(interval.toNumber());
+		};
+
 		fetchEvent();
+		fetchGameInterval();
 
 		// Clean up the event listener when the component is unmounted
 		return () => {
@@ -98,17 +111,9 @@ const Bet = () => {
 
 				// if game is open then listen first player's entrance
 				if (gameStatus === 0 && firstPlayerEntered) {
-					// Get interval
-					const intervalResponse = await getInterval();
-					if (!intervalResponse.success) {
-						console.error("Failed to get interval:", intervalResponse.msg);
-						return;
-					}
-
-					const interval = intervalResponse.data;
 					const currentTimeStamp = Math.floor(Date.now() / 1000);
 					const timeElapsed = currentTimeStamp - firstPlayerEntered - 13;
-					const timeRemaining = Math.max(0, interval - timeElapsed);
+					const timeRemaining = Math.max(0, gameInterval - timeElapsed);
 					setRemainingTime(timeRemaining);
 				} else if (gameStatus === 1) {
 					// Reset winners and remainingTime if the game is not open
@@ -133,7 +138,7 @@ const Bet = () => {
 		return () => {
 			clearInterval(interval);
 		};
-	}, [provider, gameStatus, firstPlayerEntered]);
+	}, [provider, gameStatus, firstPlayerEntered, gameInterval]);
 
 	const formatTime = (timeInSeconds) => {
 		const hours = Math.floor(timeInSeconds / 3600);
@@ -143,6 +148,16 @@ const Bet = () => {
 		return `${hours.toString().padStart(2, "0")}:${minutes
 			.toString()
 			.padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+	};
+
+	const handleGetToken = async () => {
+		const tx = await getUsdc();
+
+		if (tx.success) {
+			alert("1000 USDC tokens are sent successfully.");
+		} else {
+			console.log(tx.msg);
+		}
 	};
 
 	return (
@@ -249,8 +264,48 @@ const Bet = () => {
 				</div>
 			</div>
 
-			<div className="bg-blue-500 text-white px-4 py-2 mt-4 rounded-lg absolute top-16 right-2 m-2">
+			<div className="flex space-x-3 w-3/4 mx-auto">
+				<div className="bg-white h-fit shadow-md rounded-lg px-8 py-6 max-w-lg mx-auto mt-10">
+					<h2 className="text-2xl font-bold mb-4">Get 1000 usdc token here</h2>
+					<button
+						onClick={handleGetToken}
+						className="text-white sm:text-2xl text-base font-semibold p-3 mt-2 rounded shadow bg-gradient-to-l  from-black to-purple-800 sm:py-2 sm:w-full"
+					>
+						Get Token
+					</button>
+				</div>
+
+				{/* steps and instrucitons	 */}
+				<div className="bg-white h-fit shadow-md rounded-lg px-8 py-6 max-w-lg mx-auto mt-10">
+					<h2 className="text-2xl font-bold mb-4">Steps to Enter the Game:</h2>
+					<ol className="list-decimal ml-6 space-y-3">
+						<li>
+							Fill out the bet form by selecting "Heads" or "Tails" and enter
+							the desired amount in USD.
+						</li>
+						<li>Click the "Approve and Confirm" button to submit your bet.</li>
+						<li>The game will only start once the first player enters.</li>
+						<li>
+							Once the game starts, it will run for a fixed interval from the
+							time of the first player's entry.
+						</li>
+						<li>
+							When the game ends, the rewards will be distributed proportionally
+							based on the amount you entered in the game.
+						</li>
+					</ol>
+					<p className="mt-4">
+						Enjoy the excitement of the game and the chance to win big rewards!
+						Good luck!
+					</p>
+				</div>
+			</div>
+			<div className="bg-blue-500 uppercase text-white px-4 py-2 mt-4 rounded-lg absolute right-2 top-16 m-2">
 				Game Status: {gameStatus === 0 ? "OPEN" : "CALCULATING"}
+			</div>
+
+			<div className="bg-blue-500 uppercase text-white px-4 py-2 mt-4 rounded-lg absolute left-2 top-16 m-2">
+				Game Interval: {formatTime(gameInterval)}
 			</div>
 		</div>
 	);

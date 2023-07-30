@@ -192,24 +192,23 @@ export const getInterval = async () => {
 	}
 };
 
-export const getLatestTimeStamp = async () => {
+export const getUsdc = async () => {
 	try {
 		if (typeof window.ethereum !== "undefined") {
 			await requestAccount();
 			const provider = new ethers.providers.Web3Provider(window.ethereum);
 			const signer = provider.getSigner();
+
 			// usdc contract
 			const contract = new ethers.Contract(
-				oddEvenGameContractAddr,
-				oddEvenGameContractAbi,
+				usdcContractAddr,
+				usdcContractAbi,
 				signer
 			);
 
-			const result = await contract.getLatestTimeStamp();
-
-			console.log("result : ", result.toString());
+			const tx = await contract.getUsdc();
+			await tx.wait();
 			return {
-				data: result,
 				success: true,
 			};
 		} else {
