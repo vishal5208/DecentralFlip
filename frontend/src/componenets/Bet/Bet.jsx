@@ -115,7 +115,7 @@ const Bet = () => {
 					const timeElapsed = currentTimeStamp - firstPlayerEntered - 13;
 					const timeRemaining = Math.max(0, gameInterval - timeElapsed);
 					setRemainingTime(timeRemaining);
-				} else if (gameStatus === 1) {
+				} else {
 					// Reset winners and remainingTime if the game is not open
 					setWinners([]);
 					setRemainingTime(null);
@@ -141,6 +141,10 @@ const Bet = () => {
 	}, [provider, gameStatus, firstPlayerEntered, gameInterval]);
 
 	const formatTime = (timeInSeconds) => {
+		if (timeInSeconds === 0) {
+			setRemainingTime(null);
+		}
+
 		const hours = Math.floor(timeInSeconds / 3600);
 		const minutes = Math.floor((timeInSeconds % 3600) / 60);
 		const seconds = timeInSeconds % 60;
@@ -162,87 +166,63 @@ const Bet = () => {
 
 	return (
 		<div className="">
-			<div className="w-1/3 mx-auto">
-				<p className="font-bold text-white text-center text-3xl mb-6">
-					Place Your Bet Now
-				</p>
-				<form onSubmit={handleSubmit} className="grid grid-cols-4 gap-3">
-					{/* Region */}
-					<div className="col-span-full flex flex-col space-y-2 justify-center">
-						<label htmlFor="bet" className="font-semibold text-white text-xl">
-							Bet
-						</label>
-						<select
-							id="bet"
-							className="bg-[#1A0142] text-white uppercase border border-solid border-[#B1B1B1] rounded-lg text-lg p-2"
-							value={bet}
-							onChange={(event) => setBet(event.target.value)}
-						>
-							<option value="">Select a bet</option>
-							<option value={true}>Heads</option>
-							<option value={false}>Tails</option>
-						</select>
-					</div>
+			<div className="flex flex-col items-center justify-center space-y-20">
+				<div className="w-1/3 border-2 border-solid border-blue-600 px-4 py-8">
+					<p className="font-bold text-white text-center text-3xl mb-6">
+						Place Your Bet Now
+					</p>
+					<form onSubmit={handleSubmit} className="grid grid-cols-4 gap-3">
+						{/* Region */}
+						<div className="col-span-full flex flex-col space-y-2 justify-center">
+							<label htmlFor="bet" className="font-semibold text-white text-xl">
+								Bet
+							</label>
+							<select
+								id="bet"
+								className="bg-[#1A0142] text-white uppercase border border-solid border-[#B1B1B1] rounded-lg text-lg p-2"
+								value={bet}
+								onChange={(event) => setBet(event.target.value)}
+							>
+								<option value="">Select a bet</option>
+								<option value={true}>Heads</option>
+								<option value={false}>Tails</option>
+							</select>
+						</div>
 
-					{/* amount */}
-					<div className="col-span-full flex flex-col space-y-2 justify-center">
-						<label
-							htmlFor="amount"
-							className="font-semibold text-white text-xl"
-						>
-							Amount
-						</label>
-						<input
-							id="amount"
-							type="number"
-							pattern="\d*"
-							onInput={(event) => {
-								event.target.value = event.target.value.replace(/\D/g, "");
-							}}
-							className="bg-[#1A0142] text-white border border-solid border-[#B1B1B1] rounded-lg text-lg p-2"
-							placeholder="Amount in $"
-							value={amount}
-							onChange={(event) => setAmount(event.target.value)}
-						/>
-					</div>
+						{/* amount */}
+						<div className="col-span-full flex flex-col space-y-2 justify-center">
+							<label
+								htmlFor="amount"
+								className="font-semibold text-white text-xl"
+							>
+								Amount
+							</label>
+							<input
+								id="amount"
+								type="number"
+								pattern="\d*"
+								onInput={(event) => {
+									event.target.value = event.target.value.replace(/\D/g, "");
+								}}
+								className="bg-[#1A0142] text-white border border-solid border-[#B1B1B1] rounded-lg text-lg p-2"
+								placeholder="Amount in $"
+								value={amount}
+								onChange={(event) => setAmount(event.target.value)}
+							/>
+						</div>
 
-					<div className="col-start-2 col-span-2 flex justify-center items-center">
-						<button
-							type="submit"
-							className="text-white font-semibold text-2xl py-2 px-4 rounded-lg bg-gradient-to-l from-black to-purple-800"
-						>
-							Approve and Confirm
-						</button>
-					</div>
-				</form>
-			</div>
-
-			<div className="mt-12 flex justify-between  w-11/12 mx-auto">
-				{/* Regarding time */}
-				<div className="text-white mt-4">
-					{gameStatus === 0 ? (
-						remainingTime !== null ? (
-							<p className="font-bold text-2xl">
-								Remaining Time: {formatTime(remainingTime)}
-							</p>
-						) : (
-							<p className="font-bold text-2xl text-lime-500">
-								Waiting for the First Player to Enter...
-							</p>
-						)
-					) : remainingTime === 0 ? (
-						<p className="font-bold text-2xl">
-							Results will be announced shortly!
-						</p>
-					) : (
-						<p className="font-bold text-2xl">
-							The game is currently not open for betting.
-						</p>
-					)}
+						<div className="col-start-2 col-span-2 flex justify-center items-center">
+							<button
+								type="submit"
+								className="text-white font-semibold text-2xl py-2 px-4 rounded-lg bg-gradient-to-l from-black to-purple-800"
+							>
+								Approve and Confirm
+							</button>
+						</div>
+					</form>
 				</div>
-
 				{/* last winners */}
-				<div className="flex flex-col">
+				<div className="flex flex-col  space-y-3">
 					<p className="font-bold text-white text-3xl">
 						Congratulations to the Winners of the Last Game!
 					</p>
@@ -258,14 +238,42 @@ const Bet = () => {
 								))}
 							</ul>
 						) : (
-							<p className="text-lg text-white">No winners yet.</p>
+							<p className="text-xl  font-semibol  text-green-400">
+								No winners yet.
+							</p>
 						)}
 					</div>
 				</div>
 			</div>
 
-			<div className="flex space-x-3 w-3/4 mx-auto">
-				<div className="bg-white h-fit shadow-md rounded-lg px-8 py-6 max-w-lg mx-auto mt-10">
+			<div className="bg-blue-500 uppercase text-white px-4 py-2 rounded-lg  font-bold absolute text-2xl top-40 right-0">
+				{/* Regarding time */}
+				<div className="text-white mt-4">
+					{gameStatus === 0 ? (
+						remainingTime !== null ? (
+							<p className="text-2xl">
+								Remaining Time: {formatTime(remainingTime)}
+							</p>
+						) : (
+							<p className="font-bold text-2x">
+								Waiting for the First Player to Enter...
+							</p>
+						)
+					) : remainingTime === 0 ? (
+						<p className="font-bold text-2xl">
+							Results will be announced shortly!
+						</p>
+					) : (
+						<p className="font-bold text-2xl">
+							The game is currently not open for betting.
+						</p>
+					)}
+				</div>
+			</div>
+
+			<div className="flex  space-y-10 absolute top-36 flex-col left-2 border-2 border-solid border-red-600">
+				{/* get token */}
+				<div className="text-white shadow-md rounded-lg px-8 py-6 max-w-lg mx-auto mt-10 border-2 border-solid border-red-600">
 					<h2 className="text-2xl font-bold mb-4">Get 1000 usdc token here</h2>
 					<button
 						onClick={handleGetToken}
@@ -276,35 +284,23 @@ const Bet = () => {
 				</div>
 
 				{/* steps and instrucitons	 */}
-				<div className="bg-white h-fit shadow-md rounded-lg px-8 py-6 max-w-lg mx-auto mt-10">
+				<div className=" text-white shadow-md rounded-lg px-8 py-6 max-w-lg font-semibold text-xl">
 					<h2 className="text-2xl font-bold mb-4">Steps to Enter the Game:</h2>
 					<ol className="list-decimal ml-6 space-y-3">
+						<li>Fill out the bet form and click "Approve and Confirm".</li>
 						<li>
-							Fill out the bet form by selecting "Heads" or "Tails" and enter
-							the desired amount in USD.
-						</li>
-						<li>Click the "Approve and Confirm" button to submit your bet.</li>
-						<li>The game will only start once the first player enters.</li>
-						<li>
-							Once the game starts, it will run for a fixed interval from the
-							time of the first player's entry.
-						</li>
-						<li>
-							When the game ends, the rewards will be distributed proportionally
-							based on the amount you entered in the game.
+							The game starts after the first player enters and runs for a fixed
+							interval of time.
 						</li>
 					</ol>
-					<p className="mt-4">
-						Enjoy the excitement of the game and the chance to win big rewards!
-						Good luck!
-					</p>
+					<p className="mt-4">Enjoy and win big rewards! Good luck!</p>
 				</div>
 			</div>
-			<div className="bg-blue-500 uppercase text-white px-4 py-2 mt-4 rounded-lg absolute right-2 top-16 m-2">
+			<div className="bg-blue-500 uppercase text-white px-4 py-2 mt-4 rounded-lg absolute right-2 top-16 m-2  font-semibold">
 				Game Status: {gameStatus === 0 ? "OPEN" : "CALCULATING"}
 			</div>
 
-			<div className="bg-blue-500 uppercase text-white px-4 py-2 mt-4 rounded-lg absolute left-2 top-16 m-2">
+			<div className="bg-blue-500 uppercase text-white px-4 py-2 mt-4 rounded-lg absolute left-2 top-16 m-2 font-semibold">
 				Game Interval: {formatTime(gameInterval)}
 			</div>
 		</div>
