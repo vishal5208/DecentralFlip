@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import {
 	enterToOddEvenGame,
 	getOddEvenGameState,
+	getInterval,
+	getLatestTimeStamp,
 } from "../backendConnectors/oddEvenGameConnector";
 import { useConnectWallet } from "../Wallet/useConnectWallet";
 import { ethers } from "ethers";
@@ -9,12 +11,15 @@ import { ethers } from "ethers";
 const contracts = require("../../constants/contracts.json");
 const oddEvenGameContractAddr = contracts.OddEvenGame[1];
 const oddEvenGameContractAbi = contracts.OddEvenGame[0];
+let oddEvenGameContract;
 
 const Bet = () => {
 	const [bet, setBet] = useState("");
 	const [amount, setAmount] = useState("0");
 	const [gameStatus, setGameStatus] = useState(0);
 	const [winners, setWinners] = useState([]);
+	const [remainingTime, setRemainingTime] = useState(null);
+	const [firstPlayerEntered, setFirstPlayerEntered] = useState(null);
 
 	const { provider } = useConnectWallet();
 
@@ -30,9 +35,8 @@ const Bet = () => {
 		}
 	};
 
+	// listnes for winners declared and game stataus
 	useEffect(() => {
-		let oddEvenGameContract; // Declare contract variable outside the fetchEvent function
-
 		const fetchEvent = async () => {
 			if (!provider) {
 				console.error("Ethereum provider not available.");
@@ -51,14 +55,22 @@ const Bet = () => {
 
 				// Listen for the "OddEvenGameEnter" event
 				oddEvenGameContract.on("GameStatusChanged", (gameStatus) => {
-					console.log("gameStatus:", gameStatus);
 					setGameStatus(gameStatus);
 				});
 
+				// listen for winners
 				oddEvenGameContract.on("WinnersDeclared", (winnersArray) => {
 					console.log("winnersArray:", winnersArray);
 					setWinners(winnersArray); // Use setWinners to update the state
 				});
+
+				// Listen for the "FirstPlayerEntered" event
+				oddEvenGameContract.on(
+					"FirstPlayerEntered",
+					(firstPlayerEnteredTime) => {
+						setFirstPlayerEntered(firstPlayerEnteredTime);
+					}
+				);
 			} catch (error) {
 				console.error("Error while setting up event listener:", error);
 			}
@@ -70,27 +82,68 @@ const Bet = () => {
 		return () => {
 			if (oddEvenGameContract) {
 				oddEvenGameContract.removeAllListeners("OddEvenGameEnter");
+				oddEvenGameContract.removeAllListeners("WinnersDeclared");
+				oddEvenGameContract.removeAllListeners("FirstPlayerEntered");
 			}
 		};
 	}, [provider]);
 
-	// to keep track of game status every 10 seconds
 	useEffect(() => {
-		const fetchGameStatus = async () => {
-			const result = await getOddEvenGameState();
+		const fetchData = async () => {
+			try {
+				if (!provider) {
+					console.error("Ethereum provider not available.");
+					return;
+				}
 
-			if (result.success) {
-				console.log("gameStatus fetched after 10 seconds:", result.data);
-				setGameStatus(result.data); // The result.data should be a uint8 value representing the game state
+				// if game is open then listen first player's entrance
+				if (gameStatus === 0 && firstPlayerEntered) {
+					// Get interval
+					const intervalResponse = await getInterval();
+					if (!intervalResponse.success) {
+						console.error("Failed to get interval:", intervalResponse.msg);
+						return;
+					}
+
+					const interval = intervalResponse.data;
+					const currentTimeStamp = Math.floor(Date.now() / 1000);
+					const timeElapsed = currentTimeStamp - firstPlayerEntered - 13;
+					const timeRemaining = Math.max(0, interval - timeElapsed);
+					setRemainingTime(timeRemaining);
+				} else if (gameStatus === 1) {
+					// Reset winners and remainingTime if the game is not open
+					setWinners([]);
+					setRemainingTime(null);
+					setFirstPlayerEntered(null);
+				}
+			} catch (error) {
+				console.error("Error fetching data:", error);
 			}
 		};
 
-		const interval = setInterval(fetchGameStatus, 10000);
+		fetchData();
+
+		const interval = setInterval(() => {
+			// Decrement the remaining time every second
+			setRemainingTime((prevRemainingTime) =>
+				prevRemainingTime !== null ? Math.max(0, prevRemainingTime - 1) : null
+			);
+		}, 1000);
 
 		return () => {
 			clearInterval(interval);
 		};
-	}, []);
+	}, [provider, gameStatus, firstPlayerEntered]);
+
+	const formatTime = (timeInSeconds) => {
+		const hours = Math.floor(timeInSeconds / 3600);
+		const minutes = Math.floor((timeInSeconds % 3600) / 60);
+		const seconds = timeInSeconds % 60;
+
+		return `${hours.toString().padStart(2, "0")}:${minutes
+			.toString()
+			.padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+	};
 
 	return (
 		<div className="">
@@ -154,7 +207,9 @@ const Bet = () => {
 			</div>
 
 			<div className="mt-8 flex flex-col w-1/2 mx-auto">
-				<p className="font-bold text-3xl">Winners</p>
+				<p className="font-bold text-3xl">
+					Congratulations to the winners of the last game!
+				</p>
 
 				{/* Show winners here */}
 				<div className="mt-4">
@@ -173,6 +228,23 @@ const Bet = () => {
 			</div>
 			<div className="bg-blue-500 text-white px-4 py-2 mt-4 rounded-lg absolute top-16 right-2 m-2">
 				Game Status: {gameStatus === 0 ? "OPEN" : "CALCULATING"}
+			</div>
+
+			<div>
+				{gameStatus === 0 ? (
+					remainingTime !== null ? (
+						<p>Remaining Time: {formatTime(remainingTime)}</p>
+					) : (
+						<p>
+							Currently awaiting the first player's entry to initiate the game
+							and start the timer.
+						</p>
+					)
+				) : remainingTime === 0 ? (
+					<p>The results will be announced shortly!</p>
+				) : (
+					<p>The game is currently not open for betting.</p>
+				)}
 			</div>
 		</div>
 	);

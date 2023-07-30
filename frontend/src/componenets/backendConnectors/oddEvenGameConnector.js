@@ -138,10 +138,76 @@ export const getOddEvenGameState = async () => {
 				signer
 			);
 
-			console.log("called me");
 			const result = await contract.getOddEvenGameState();
 
-			console.log("result : ", result);
+			return {
+				data: result,
+				success: true,
+			};
+		} else {
+			return {
+				success: false,
+				msg: "Please connect your wallet!",
+			};
+		}
+	} catch (error) {
+		return {
+			success: false,
+			msg: error.message,
+		};
+	}
+};
+
+export const getInterval = async () => {
+	try {
+		if (typeof window.ethereum !== "undefined") {
+			await requestAccount();
+			const provider = new ethers.providers.Web3Provider(window.ethereum);
+			const signer = provider.getSigner();
+			// usdc contract
+			const contract = new ethers.Contract(
+				oddEvenGameContractAddr,
+				oddEvenGameContractAbi,
+				signer
+			);
+
+			const result = await contract.getInterval();
+
+			console.log("result : ", result.toString());
+			return {
+				data: result,
+				success: true,
+			};
+		} else {
+			return {
+				success: false,
+				msg: "Please connect your wallet!",
+			};
+		}
+	} catch (error) {
+		return {
+			success: false,
+			msg: error.message,
+		};
+	}
+};
+
+export const getLatestTimeStamp = async () => {
+	try {
+		if (typeof window.ethereum !== "undefined") {
+			await requestAccount();
+			const provider = new ethers.providers.Web3Provider(window.ethereum);
+			const signer = provider.getSigner();
+			// usdc contract
+			const contract = new ethers.Contract(
+				oddEvenGameContractAddr,
+				oddEvenGameContractAbi,
+				signer
+			);
+
+			const result = await contract.getLatestTimeStamp();
+
+			console.log("result : ", result.toString());
 			return {
 				data: result,
 				success: true,

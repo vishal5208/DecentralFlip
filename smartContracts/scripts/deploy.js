@@ -1,7 +1,6 @@
 const hre = require("hardhat");
 const networkConfig = require("../helper");
 const fs = require("fs");
-const { json } = require("hardhat/internal/core/params/argumentTypes");
 
 async function main() {
 	const mumbaiData = networkConfig.networkConfig[80001];

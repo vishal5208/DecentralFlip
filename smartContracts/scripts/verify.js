@@ -1,6 +1,7 @@
 const hre = require("hardhat");
 const networkConfig = require("../helper");
 const mumbaiData = networkConfig.networkConfig[80001];
+const contracts = require("../../frontend/src/constants/contracts.json");
 
 async function verifyContracts(contractInfo) {
 	for (const info of contractInfo) {
@@ -13,7 +14,7 @@ async function verifyContracts(contractInfo) {
 
 const contractsToVerify = [
 	{
-		address: "0x26CfF986b52a386AD43a66bfba17a051265DBEC0",
+		address: contracts.OddEvenGame[1],
 		args: [
 			mumbaiData.vrfCoordinatorV2,
 

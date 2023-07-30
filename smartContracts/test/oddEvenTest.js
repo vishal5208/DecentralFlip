@@ -45,7 +45,6 @@ describe("OddEvenGame", function () {
 		// deploy usdcToken contract
 		oddEvenGame = await ethers.deployContract("OddEvenGame", [
 			vrfCoordinatorV2Mock.target,
-			entranceFee,
 			gasLane,
 			subscriptionId,
 			callBackGasLimit,
@@ -59,5 +58,15 @@ describe("OddEvenGame", function () {
 		await vrfCoordinatorV2Mock.addConsumer(subscriptionId, oddEvenGame.target);
 
 		console.log("oddEven contract at  : ", oddEvenGame.target);
+	});
+
+	it("integrated test", async () => {
+		// give contract approval first
+		await usdcToken.approve(oddEvenGame.target, "999000000");
+		// first player enters
+		const enterTx = await oddEvenGame.enterToOddEvenGame(true, "2000000");
+
+		// expect to emit FirstPlayerEntered event
+		await expect(enterTx).to.emit(oddEvenGame, "FirstPlayerEntered");
 	});
 });

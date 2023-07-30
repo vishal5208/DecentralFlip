@@ -25,7 +25,7 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
 
     /* State variables */
 
-    Player[] private s_players; // dynamic array to store players and their bet
+    Player[] private players; // dynamic array to store players and their bet
     VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
     bytes32 private immutable i_gasLane;
     uint64 private immutable i_subscriptionId;
@@ -40,11 +40,12 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
     }
 
     /* OddEvenGame variables */
-    address private s_recentWinner;
-    OddEvenGameState private s_lotteryState;
-    uint256 private s_lastTimeStamp;
-    uint256 private s_interval;
+    address private recentWinner;
+    OddEvenGameState private lotteryState;
+    uint256 private lastTimeStamp;
+    uint256 private interval;
     address[] private winners;
+    uint256 private firstPlayerEnteredTime;
 
     IERC20 public usdc;
     address public owner;
@@ -55,13 +56,14 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
     event WinningAmountTranfered(uint256 winningAmount);
     event WinnersDeclared(address[] winners);
     event GameStatusChanged(OddEvenGameState gameStatus);
+    event FirstPlayerEntered(uint timeStamp);
 
     constructor(
         address vrfCoordinatorV2,
         bytes32 gasLane,
         uint64 subscriptionId,
         uint32 callbackGasLimit,
-        uint256 interval,
+        uint256 _interval,
         address _usdcTokenAddress
     ) VRFConsumerBaseV2(vrfCoordinatorV2) {
         owner = msg.sender;
@@ -69,9 +71,9 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
         i_gasLane = gasLane;
         i_subscriptionId = subscriptionId;
         i_callbackGasLimit = callbackGasLimit;
-        s_lotteryState = OddEvenGameState.OPEN;
-        s_lastTimeStamp = block.timestamp;
-        s_interval = interval;
+        lotteryState = OddEvenGameState.OPEN;
+        lastTimeStamp = block.timestamp;
+        interval = _interval;
         usdc = IERC20(_usdcTokenAddress);
     }
 
@@ -80,15 +82,15 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
         _;
     }
 
-    function setInterval(uint256 interval) external onlyOwner {
-        s_interval = interval;
+    function setInterval(uint256 _interval) external onlyOwner {
+        interval = _interval;
     }
 
     // odd -> false, even -> true
     function enterToOddEvenGame(bool bet, uint256 amount) external {
         if (amount <= 0) revert OddEvenGame__NotEnoughEthEntered();
 
-        if (s_lotteryState != OddEvenGameState.OPEN) {
+        if (lotteryState != OddEvenGameState.OPEN) {
             revert OddEvenGame__NotOpen();
         }
 
@@ -97,7 +99,13 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
             "USDC transfer failed"
         );
 
-        s_players.push(Player(msg.sender, amount, bet));
+        players.push(Player(msg.sender, amount, bet));
+        if (players.length == 1) {
+            // Update the firstPlayerEnteredTime when the first player enters
+            firstPlayerEnteredTime = block.timestamp;
+            emit FirstPlayerEntered(firstPlayerEnteredTime);
+        }
+
         emit OddEvenGameEnter(msg.sender, amount, bet);
     }
 
@@ -108,14 +116,14 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
         if (!upkeepNeeded) {
             revert OddEvenGame__UpKeepNotNeeded(
                 address(this).balance,
-                s_players.length,
-                uint256(s_lotteryState)
+                players.length,
+                uint256(lotteryState)
             );
         }
 
-        s_lotteryState = OddEvenGameState.CALCULATING;
+        lotteryState = OddEvenGameState.CALCULATING;
 
-        emit GameStatusChanged(s_lotteryState);
+        emit GameStatusChanged(lotteryState);
 
         uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane,
@@ -136,10 +144,11 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
         override
         returns (bool upKeepNeeded, bytes memory /* performData */)
     {
-        bool isOpen = (OddEvenGameState.OPEN == s_lotteryState);
-        bool timePassed = ((block.timestamp - s_lastTimeStamp) > s_interval);
-        bool hasPlayers = (s_players.length > 0);
+        bool isOpen = (OddEvenGameState.OPEN == lotteryState);
+        bool hasPlayers = (players.length > 0);
         bool hasBalance = (usdc.balanceOf(address(this)) > 0);
+        bool timePassed = (block.timestamp - firstPlayerEnteredTime) >=
+            interval;
 
         upKeepNeeded = (isOpen && timePassed && hasBalance && hasPlayers);
         return (upKeepNeeded, "0x0");
@@ -150,8 +159,8 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
         uint256 totalWinningBets = 0;
 
         // Calculate the total bets for the winning outcome
-        for (uint256 i = 0; i < s_players.length; i++) {
-            Player memory player = s_players[i];
+        for (uint256 i = 0; i < players.length; i++) {
+            Player memory player = players[i];
             if (player.bet == bet) {
                 totalWinningBets += player.amount;
             }
@@ -165,8 +174,8 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
         uint256 winnerIndex = 0;
 
         // Distribute winnings to each winner proportionally based on their bets
-        for (uint256 i = 0; i < s_players.length; i++) {
-            Player memory player = s_players[i];
+        for (uint256 i = 0; i < players.length; i++) {
+            Player memory player = players[i];
 
             if (player.bet == bet) {
                 uint256 winnings = (player.amount * totalPot) /
@@ -203,27 +212,28 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
         // Emit event with winners
         emit WinnersDeclared(winners);
 
-        // reset s_players, winners and reset states
-        delete s_players;
+        // reset players, winners and reset states
+        delete players;
         delete winners;
-        s_lotteryState = OddEvenGameState.OPEN;
+        lotteryState = OddEvenGameState.OPEN;
+        lastTimeStamp = block.timestamp;
 
-        emit GameStatusChanged(s_lotteryState);
+        emit GameStatusChanged(lotteryState);
     }
 
     /* View/Pure functions*/
 
     function getPlayer(uint256 index) public view returns (address) {
-        Player memory player = s_players[index];
+        Player memory player = players[index];
         return player.player;
     }
 
     function getRecentWinner() public view returns (address) {
-        return s_recentWinner;
+        return recentWinner;
     }
 
     function getOddEvenGameState() public view returns (OddEvenGameState) {
-        return s_lotteryState;
+        return lotteryState;
     }
 
     function getNumWords() public pure returns (uint256) {
@@ -231,11 +241,11 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
     }
 
     function getNumberOfPlayers() public view returns (uint256) {
-        return s_players.length;
+        return players.length;
     }
 
     function getLatestTimeStamp() public view returns (uint256) {
-        return s_lastTimeStamp;
+        return lastTimeStamp;
     }
 
     function getRequestConfirmations() public pure returns (uint256) {
@@ -243,6 +253,6 @@ contract OddEvenGame is VRFConsumerBaseV2, KeeperCompatibleInterface {
     }
 
     function getInterval() public view returns (uint256) {
-        return s_interval;
+        return interval;
     }
 }
